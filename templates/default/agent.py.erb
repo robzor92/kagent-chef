@@ -772,8 +772,8 @@ class SSLCherryPy(ServerAdapter):
 
 
 class Conda():
-    def libOp(self, user, command_id, op, proj, channelUrl, lib, version):
-        def target(user, command_id, op, proj, channelUrl, lib, version):
+    def libOp(self, user, command_id, op, proj, channelUrl, installType, lib, version):
+        def target(user, command_id, op, proj, channelUrl, installType, lib, version):
             global conda_ongoing
             if not channelUrl:
                 channelUrl="default"
@@ -783,16 +783,16 @@ class Conda():
             script = BIN_DIR + "/conda.sh"
             conda_op = {}
             try:
-                command = "sudo {0} {1} {2} {3} {4} {5} {6}".format(script, user, op, proj, channelUrl, lib, version)
+                command = "sudo {0} {1} {2} {3} {4} {5} {6} {7}".format(script, user, op, proj, channelUrl, installType, lib, version)
                 logger.info("{0}".format(command))                                            
-                msg = subprocess.check_output(['sudo', script, user, op, proj, channelUrl, lib, version])
-                logger.info("Lib op finished without errror.")
+                msg = subprocess.check_output(['sudo', script, user, op, proj, channelUrl, installType, lib, version])
+                logger.info("Lib op finished without error.")
                 logger.info("{0}".format(msg))
-                conda_op = {'proj': proj, 'op': op, 'channelurl': channelUrl, 'lib': lib, 'version': version, 'status': 'SUCCESS', 'id': str(command_id) }                
+                conda_op = {'proj': proj, 'op': op, 'channelurl': channelUrl, 'installtype': installType, 'lib': lib, 'version': version, 'status': 'SUCCESS', 'id': str(command_id) }
             except subprocess.CalledProcessError, e:
-                logger.info("Execption in libOp {0}".format(e.output))
-                logger.info("Execption in libOp. Ret code: {0}".format(e.returncode))
-                conda_op = {'proj': proj, 'op': op, 'channelurl': channelUrl, 'lib': lib, 'version': version, 'status': 'FAILED', 'id':  str(command_id) }                
+                logger.info("Exception in libOp {0}".format(e.output))
+                logger.info("Exception in libOp. Ret code: {0}".format(e.returncode))
+                conda_op = {'proj': proj, 'op': op, 'channelurl': channelUrl, 'installtype': installType, 'lib': lib, 'version': version, 'status': 'FAILED', 'id':  str(command_id) }
             finally:
                 conda_ongoing[proj] = False                
                 if command_id != -1:                
@@ -800,7 +800,7 @@ class Conda():
                     conda_list.append(conda_op)                                           
                     conda_mutex.release()                
 
-        thread = threading.Thread(target=target, args=(user, command_id, op, proj, channelUrl, lib, version,))
+        thread = threading.Thread(target=target, args=(user, command_id, op, proj, channelUrl, installType, lib, version,))
         thread.start()
             
     def envOp(self, user, command_id, op, proj, arg, offline):
@@ -888,8 +888,9 @@ class Conda():
                 else:  # Conda package  commands (install, remove, upgrade)
                     version = data['version']
                     channelUrl = data['channelUrl']
+                    installType = data['installType']
                     lib = data['lib']
-                    self.libOp(user, command_id, op, proj, channelUrl, lib, version)
+                    self.libOp(user, command_id, op, proj, channelUrl, installType, lib, version)
             else:
                 logger.warn("Conda busy executing a command for project: {0}".format(proj))
 

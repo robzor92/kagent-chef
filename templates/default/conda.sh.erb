@@ -3,15 +3,15 @@
 # conda <user> <op> -n <proj> [-c <channel> --override-channels] lib[=version]
 # conda $1 -n $2 -c [$3] $4 [$5]
 
-if [[ $# -lt 5 || $# -gt 6 ]]; then
+if [[ $# -lt 6 || $# -gt 7 ]]; then
   echo "incorrect usage"
-  echo "user op proj conda_channel libname [version]"
+  echo "user op proj conda_channel install_type libname [version]"
   exit 1
 fi
 
 VERSION=""
-if [ $# -eq 6  ]; then
-  VERSION="=${6}"
+if [ $# -eq 7  ]; then
+  VERSION="${7}"
 fi
 
 EXEC_AS_USER=$1
@@ -27,15 +27,26 @@ if [ "$1" != "default" ] ; then
   CHANNEL="-c $1"    
 fi
 shift
+
+INSTALL_TYPE="$1"
+
+shift
 # Name of virtualenv python dependency
 LIB_NAME=$1
 
 #No versions allowed with upgrade
 if [ "$OP" == "UPGRADE" ] ; then
   VERSION=""
-fi    
-LIB="${LIB_NAME}${VERSION}"
+fi
 
+LIB="${LIB_NAME}"
+if [ "$OP" != "UPGRADE" ] ; then
+    if [ "${INSTALL_TYPE}" == "PIP" ] ; then
+        LIB="${LIB_NAME}==${VERSION}"
+    elif [ "${INSTALL_TYPE}" == "CONDA" ] ; then
+        LIB="${LIB_NAME}=${VERSION}"
+    fi
+fi
 
 function exists() {
     su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda list -n $PROJECT | grep '^${LIB_NAME} '"
@@ -50,22 +61,35 @@ res=0
 if [ "$OP" == "INSTALL" ] ; then
   exists
   if [ $? -ne 0 ] ; then
-      # this causes problems - '--use-index-cache' 
-      su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda install -n $PROJECT -q -y $CHANNEL $LIB"
+      if [ "${INSTALL_TYPE}" == "CONDA" ] ; then
+          # this causes problems - '--use-index-cache'
+          su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda install -n $PROJECT -q -y $CHANNEL $LIB"
+      elif [ "${INSTALL_TYPE}" == "PIP" ] ; then
+          su $EXEC_AS_USER -c "yes | <%= node["conda"]["base_dir"] %>/envs/${PROJECT}/bin/pip install $LIB"
+      fi
   fi
 elif [ "$OP" == "UPGRADE" ] ; then
   exists
   if [ $? -eq 0 ] ; then
-      su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda upgrade -n $PROJECT -q -y $CHANNEL $LIB"
+      if [ "${INSTALL_TYPE}" == "CONDA" ] ; then
+          su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda update -n $PROJECT -q -y $CHANNEL $LIB"
+      elif [ "${INSTALL_TYPE}" == "PIP" ] ; then
+          su $EXEC_AS_USER -c "yes | <%= node["conda"]["base_dir"] %>/envs/${PROJECT}/bin/pip install --upgrade $LIB"
+      fi
   fi
 elif [ "$OP" == "UNINSTALL" ] ; then
   exists
   if [ $? -eq 0 ] ; then
-      su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda remove -n $PROJECT -q -y $CHANNEL $LIB_NAME"
+      if [ "${INSTALL_TYPE}" == "CONDA" ] ; then
+          su $EXEC_AS_USER -c "<%= node["conda"]["base_dir"] %>/bin/conda remove -n $PROJECT -q -y $CHANNEL $LIB_NAME"
+      elif [ "${INSTALL_TYPE}" == "PIP" ] ; then
+          su $EXEC_AS_USER -c "yes | <%= node["conda"]["base_dir"] %>/envs/${PROJECT}/bin/pip uninstall $LIB"
+      fi
   fi
 else
   res=-5
 fi
+
 if [ $? -ne 0 ] ; then
   res=1
 fi
