@@ -27,6 +27,7 @@ default["kagent"]["certs_dir"]                     = "#{node["kagent"]["dir"]}/k
 
 override['poise-python']['options']['get_pip_url'] = 'https://raw.githubusercontent.com/pypa/get-pip/master/2.6/get-pip.py'
 override['poise-python']['options']['pip_version'] = 'https://raw.githubusercontent.com/pypa/get-pip/master/2.6/get-pip.py'
+override['poise-python']['options']['pip_version'] = '9.0.3'
 
 # API calls
 default["kagent"]["dashboard"]["api"]["register"]  = "ca/agentservice/register"
