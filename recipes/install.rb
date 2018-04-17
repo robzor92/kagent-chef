@@ -51,9 +51,7 @@ end
 
 
 #installs python 2
-override['poise-python']['options']['pip_version'] = '9.0.3'
 include_recipe "poise-python"
-override['poise-python']['options']['pip_version'] = '9.0.3'
 # The openssl::upgrade recipe doesn't install openssl-dev/libssl-dev, needed by python-ssl
 # Now using packages in ubuntu/centos.
 #include_recipe "openssl::upgrade"

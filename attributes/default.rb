@@ -25,6 +25,8 @@ default["kagent"]["enabled"]                       = "true"
 
 default["kagent"]["certs_dir"]                     = "#{node["kagent"]["dir"]}/kagent-certs"
 
+override['poise-python']['options']['pip_version'] = '9.0.3'
+
 # API calls
 default["kagent"]["dashboard"]["api"]["register"]  = "ca/agentservice/register"
 default["kagent"]["dashboard"]["api"]["login"]     = "api/auth/login"
