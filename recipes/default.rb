@@ -128,7 +128,7 @@ if network_if == ""
   when "debian"
     network_if = "eth0"
   when "rhel"
-    network_if = "enp0s3"
+    network_if = "eth0"
   end
 end
 
