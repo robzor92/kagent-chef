@@ -7,6 +7,9 @@ default["install"]["addhost"]                      = "false"
 default["install"]["version"]                      = "0.7.0-SNAPSHOT"
 default["install"]["versions"]                     = "0.1.0,0.2.0,0.3.0,0.4.0,0.4.1,0.4.2,0.5.0,0.6.0"
 
+# hops-util-py version, when value is "master" install from git, when value is "0.6.0.0" do pip install hops==0.6.0.0
+default["kagent"]["hops-util-py-version"]          = "master"
+
 # Default values for configuration parameters
 default["kagent"]["version"]                       = node["install"]["version"]
 default["kagent"]["user"]                          = node["install"]["user"].empty? ? "kagent" : node["install"]["user"]
