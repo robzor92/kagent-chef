@@ -42,6 +42,7 @@ from collections import defaultdict
 import io
 import tempfile
 import argparse
+from hops import devices
 
 import kagent_utils
 from kagent_utils import KConfig
@@ -62,19 +63,6 @@ global conda_ongoing
 conda_ongoing = defaultdict(lambda: False)
 
 cores = multiprocessing.cpu_count()
-
-def count_num_gpus():
-    try:
-        p = Popen(['which nvidia-smi'], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (output,err)=p.communicate()
-        returncode = p.wait()
-        if not returncode == 0:
-            return 0
-        process = subprocess.Popen("nvidia-smi -L", shell=True, stdout=subprocess.PIPE)
-        stdout_list = process.communicate()[0].split('\n')
-        return len(stdout_list)-1
-    except Exception as err:
-        return 0
 
 def create_log_dir_if_not(kconfig):
     log_dir = kconfig.agent_log_dir
@@ -236,7 +224,7 @@ class Heartbeat():
                 now = long(time.mktime(datetime.now().timetuple()))
                 headers = {'content-type': 'application/json'}
                 payload = {}
-                payload["num-gpus"] = count_num_gpus()
+                payload["num-gpus"] = devices.get_num_gpus()
                 payload["host-id"] = kconfig.host_id
                 payload["agent-time"] = now
                 payload["load1"] = load_info.load1

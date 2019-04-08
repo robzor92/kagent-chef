@@ -92,6 +92,12 @@ group node["kagent"]["certs_group"] do
   append true
 end
 
+group "video"  do
+  action :modify
+  members ["#{node["kagent"]["user"]}"]
+  append true
+end
+
 bash "make_gemrc_file" do
   user "root"
   code <<-EOF
