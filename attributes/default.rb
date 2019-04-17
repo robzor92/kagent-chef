@@ -1,10 +1,5 @@
 include_attribute "conda"
 
-default["kagent"]["hops-util-py"]["install-mode"]     = 'git'
-default["kagent"]["hops-util-py"]["branch"]           = "master"
-default["kagent"]["hops-util-py"]["repo"]             = "logicalclocks"
-default["kagent"]["hops-util-py"]["version"]          = "0.9.0.0"
-
 # Default values for configuration parameters
 default["kagent"]["version"]                       = node["install"]["version"]
 default["kagent"]["user"]                          = node["install"]["user"].empty? ? "kagent" : node["install"]["user"]
