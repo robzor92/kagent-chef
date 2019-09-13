@@ -372,8 +372,6 @@ class CondaCommandsHandler:
         
     def _envOp(self, command, arg, offline):
         global conda_ongoing
-        if not arg:
-            arg=""
         user = command['user']
         command_id = command['id']
         op = command['op'].upper()
@@ -381,19 +379,19 @@ class CondaCommandsHandler:
         install_jupyter = str(command['installJupyter']).lower()
 
         tempfile_fd = None
-        if command['op'] == 'YML':
-            tempfile_fd = tempfile.NamedTemporaryFile(suffix='.yml', delete=True)
-            arg = tempfile_fd.name
-            tempfile_fd.write(command['environmentYml'])
-            tempfile_fd.flush()
-            os.chmod(tempfile_fd.name, 0604)
-
         script = kconfig.bin_dir + "/anaconda_env.sh"
         logger.info("sudo {0} {1} {2} {3} {4} '{5}' {6} {7}".format(script, user, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter))
         msg=""
         try:
             self._log_conda_command(proj, op, proj, arg, -1, 'WORKING')
-            msg = subprocess.check_output(['sudo', script, user, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter], cwd=kconfig.conda_dir, stderr=subprocess.STDOUT)
+            yml_file_path = "''"
+            if command['op'] == 'YML':
+                tempfile_fd = tempfile.NamedTemporaryFile(suffix='.yml', delete=True)
+                yml_file_path = tempfile_fd.name
+                tempfile_fd.write(command['environmentYml'])
+                tempfile_fd.flush()
+                os.chmod(tempfile_fd.name, 0604)
+            msg = subprocess.check_output(['sudo', script, user, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter, yml_file_path], cwd=kconfig.conda_dir, stderr=subprocess.STDOUT)
             command['status'] = 'SUCCESS'
             command['arg'] = arg
             self._log_conda_command(proj, op, proj, arg, 0, 'SUCCESS')

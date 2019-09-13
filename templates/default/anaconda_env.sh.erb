@@ -17,6 +17,7 @@ ARG="${4//[^a-zA-Z0-9\.\-\_]/}"
 OFFLINE="${5//[^a-zA-Z0-9\.\-\_]/}"
 HADOOP_DIR="${6//[^a-zA-Z0-9\.\-\_/]/}"
 INSTALL_JUPYTER="${7//[^a-zA-Z0-9\.\-\_]/}"
+YML_FILE_PATH="${8//[^a-zA-Z0-9\.\-\_/]/}"
 
 CLONE=
 CONDA_DIR=<%= node["conda"]["base_dir"] %>
@@ -33,7 +34,7 @@ function exists() {
 }
 
 if [ "$OP" == "YML" ] ; then
-   su "$EXEC_AS_USER" -c "export HADOOP_HOME=${HADOOP_DIR}; ${CONDA_DIR}/bin/conda env create -f ${ARG} -n ${PROJECT}"
+   su "$EXEC_AS_USER" -c "export PATH=${PATH}:${HADOOP_DIR}/bin; ${CONDA_DIR}/bin/conda env create -f ${YML_FILE_PATH} -n ${PROJECT}"
    
    if [ $? -ne 0 ] ; then
        exit 2
@@ -42,7 +43,7 @@ if [ "$OP" == "YML" ] ; then
    if [ "$INSTALL_JUPYTER" == "true" ] ; then 
         set -e
         # Install packages
-        su "$EXEC_AS_USER" -c "yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyter pandas"
+        su "$EXEC_AS_USER" -c "export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyter pandas"
         if [ $? -ne 0 ] ; then
             exit 2
         fi 
