@@ -43,7 +43,7 @@ if [ "$OP" == "YML" ] ; then
    if [ "$INSTALL_JUPYTER" == "true" ] ; then 
         set -e
         # Install packages
-        su "$EXEC_AS_USER" -c "export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyter pandas"
+        su "$EXEC_AS_USER" -c "export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyter pandas tqdm"
         if [ $? -ne 0 ] ; then
             exit 2
         fi 
