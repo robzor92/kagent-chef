@@ -46,7 +46,16 @@ if [ "$OP" == "YML" ] ; then
         su "$EXEC_AS_USER" -c "export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyter pandas tqdm"
         if [ $? -ne 0 ] ; then
             exit 2
-        fi 
+        fi
+
+        if [ "#{node['conda']['hops-util-py']['install-mode']}" == "git" ] ; then
+            yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install git+https://github.com/#{node['conda']['hops-util-py']['repo']}/hops-util-py@#{node['conda']['hops-util-py']['branch']}
+        else
+            yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install hops==#{node['conda']['hops-util-py']['version']}
+        fi
+        if [ $? -ne 0 ] ; then
+            exit 2
+        fi
 
         # Install packages to allow users to manage their jupyter extensions
         su "$EXEC_AS_USER" -c "yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade jupyter_contrib_nbextensions jupyter_nbextensions_configurator"
