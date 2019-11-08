@@ -350,7 +350,7 @@ class CondaCommandsHandler:
             arg = ""
             if 'arg' in command:
                 arg = command['arg']
-            if op == "REMOVE" or op == "CLONE" or op == "CREATE" or op == "YML" or op == "CLEAN":
+            if op == "REMOVE" or op == "CLONE" or op == "CREATE" or op == "YML" or op == "EXPORT" or op == "CLEAN":
                 self._envOp(command, arg, offline)
             elif op == "INSTALL" or op == "UNINSTALL" or op == "UPGRADE":  # Conda package  commands (install, uninstall, upgrade)
                 self._libOp(command)
@@ -384,13 +384,20 @@ class CondaCommandsHandler:
         try:
             self._log_conda_command(proj, op, proj, arg, -1, 'WORKING')
             yml_file_path = "''"
-            if command['op'] == 'YML':
+            if command['op'] == 'YML' or command['op'] == 'EXPORT':
                 tempfile_fd = tempfile.NamedTemporaryFile(suffix='.yml', delete=True)
                 yml_file_path = tempfile_fd.name
-                tempfile_fd.write(command['environmentYml'])
-                tempfile_fd.flush()
-                os.chmod(tempfile_fd.name, 0604)
+                if command['op'] == 'YML':
+                    tempfile_fd.write(command['environmentYml'])
+                    tempfile_fd.flush()
+                    os.chmod(yml_file_path, 0604)
+                else:
+                    os.chmod(yml_file_path, 0606)
             msg = subprocess.check_output(['sudo', script, user, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter, yml_file_path], cwd=kconfig.conda_dir, stderr=subprocess.STDOUT)
+            if command['op'] == 'EXPORT':
+                with open(yml_file_path, 'r') as yml_file:
+                    content = yml_file.read()
+                    command['environmentYml'] = content
             command['status'] = 'SUCCESS'
             command['arg'] = arg
             self._log_conda_command(proj, op, proj, arg, 0, 'SUCCESS')
@@ -400,7 +407,7 @@ class CondaCommandsHandler:
             self._log_conda_command(proj, op, proj, arg, e.returncode, e.output)
             command['status'] = 'FAILED'
         finally:
-            if command['op'] == 'YML' and tempfile_fd != None:
+            if (command['op'] == 'YML' or command['op'] == 'EXPORT') and tempfile_fd != None:
                 tempfile_fd.close()
             if command_id != -1:
                 self._conda_commands_status_mutex.acquire()
