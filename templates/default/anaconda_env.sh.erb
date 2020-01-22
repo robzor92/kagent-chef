@@ -29,7 +29,6 @@ WITH_PYTHON_KERNEL=<%= @jupyter_python %>
 
 IS_ENTERPRISE_EDITION=<%= node['install']['enterprise']['install'].downcase.strip %>
 JUPYTERLAB_VERSION_PY3=<%= node['conda']['jupyter']['version']['py3'] %>
-JUPYTERLAB_VERSION_PY2=<%= node['conda']['jupyter']['version']['py2'] %>
 JUPYTERLAB_GIT_VERSION=<%= node['conda']['jupyter']['jupyterlab-git']['version'] %>
 
 if [ "$OP" == "CLONE" ] ; then
@@ -53,20 +52,13 @@ if [ "$OP" == "YML" ] ; then
        exit 2
    fi
 
-   if [ "$INSTALL_JUPYTER" == "true" ] ; then
-        set +e
-	is_python3 "${CONDA_DIR}/envs/${PROJECT}"
-	is_py3_env=$?
-
-        # Install packages
+  if [ "$INSTALL_JUPYTER" == "true" ] ; then
+  # Install packages
 	set -e
-	if [ $is_py3_env -eq 0 ]
-	then
-	    jupyterlab_version=$JUPYTERLAB_VERSION_PY3
-	else
-	    jupyterlab_version=$JUPYTERLAB_VERSION_PY2
-	fi
-        export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyterlab==${jupyterlab_version} pandas tqdm
+
+  jupyterlab_version=$JUPYTERLAB_VERSION_PY3
+
+  export PATH=${PATH}:${HADOOP_DIR}/bin; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade hdfscontents urllib3 requests jupyterlab==${jupyterlab_version} pandas tqdm
 
 	## Downgrade notebook to 5.7.8 (HOPSWORKS-1251)
 	yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade notebook==5.7.8
@@ -77,8 +69,6 @@ if [ "$OP" == "YML" ] ; then
 	# Install wit-widget
 	yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade witwidget
 
-	if [ $is_py3_env -eq 0 ]
-	then
 	    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build wit-widget; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build @jupyter-widgets/jupyterlab-manager; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build nbdime-jupyterlab; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter lab build
 	    if [ $IS_ENTERPRISE_EDITION == "true" ]
 	    then
@@ -105,10 +95,6 @@ if [ "$OP" == "YML" ] ; then
 		    set -e
 		fi
 	    fi
-	else
-	    set -e
-	    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build wit-widget; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build @jupyter-widgets/jupyterlab-manager; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter lab build
-	fi
 
 	# DO NOT TOUCH THIS! Bad things are about to happen
 	yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade prompt-toolkit==1.0.16
@@ -161,20 +147,8 @@ elif [ "$OP" == "CREATE" ] ; then
     if [ $? -eq 0 ] ; then
        exit 0
     fi
-
-    if [[ $ARG =~ .*X ]] ; then
-       ARG=${ARG::-1} # removes the 'X' at the end of the version
-       WITH_PYTHON_KERNEL="false"
-    fi
-    PY=${ARG//\./}
-
-    if [ "$PY" == "27" ] ; then
-      ${CONDA_DIR}/bin/conda create -n $PROJECT --clone python27 -y -q $OFFLINE
-    else
-      ${CONDA_DIR}/bin/conda create -n $PROJECT --clone python36 -y -q $OFFLINE
-    fi
-
-
+    ${CONDA_DIR}/bin/conda create -n $PROJECT --clone python36 -y -q $OFFLINE
+    
 elif [ "$OP" == "LIST_ENVS" ] ; then
   ${CONDA_DIR}/bin/conda env list --json > /tmp/conda_envs.json
 
