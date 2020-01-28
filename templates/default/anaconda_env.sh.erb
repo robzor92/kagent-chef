@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [ $# -lt 6  ]; then
-    echo "<user> <op> <proj> <arg> <offline> <hadoop_home> <install_jupyter>"
+    echo "<op> <proj> <arg> <offline> <hadoop_home> <install_jupyter> <yml_file_path>"
     echo "incorrect usage."
     echo "<arg> is the python version for 'create', the source env for 'clone' and the path to yml file for 'yml'."
  exit 1
@@ -9,6 +9,10 @@ fi
 
 # Force umask 022 as default for conda packages - See HOPSWORKS-880
 umask 022
+
+# Set home directory
+USER=<%= node["conda"]["user"] %>
+export HOME=/home/${USER}
 
 OP="${1//[^a-zA-Z0-9\.\-\_]/}"
 PROJECT="${2//[^a-zA-Z0-9\.\-\_]/}"
@@ -33,7 +37,7 @@ if [ "$OP" == "CLONE" ] ; then
 fi
 
 function exists() {
-    ${CONDA_DIR}/bin/conda info --envs | grep '^${PROJECT} '
+    ${CONDA_DIR}/bin/conda info --envs | grep "^${PROJECT} "
     return $?
 }
 
@@ -92,11 +96,11 @@ if [ "$OP" == "YML" ] ; then
 		upstream_version=${upstream_version:1}
 
 		set +e
-		test -r "/home/${EXEC_AS_USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl"
+		test -r "/home/${USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl"
 		if [ $? -eq 0 ]
 		then
 		    set -e
-		    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install @jupyterlab/git@${upstream_version}; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade /home/${EXEC_AS_USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter serverextension enable --sys-prefix --py jupyterlab_git
+		    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install @jupyterlab/git@${upstream_version}; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade /home/${USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter serverextension enable --sys-prefix --py jupyterlab_git
 		else
 		    set -e
 		fi

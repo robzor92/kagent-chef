@@ -12,6 +12,9 @@ fi
 # Force umask 022 as default for conda packages - See HOPSWORKS-880
 umask 022
 
+# Set home direcory
+export HOME=/home/<%= node["conda"]["user"] %>
+
 VERSION=""
 if [ $# -eq 6  ]; then
   VERSION="${6//[^a-zA-Z0-9\.\-\_]/}"
@@ -50,7 +53,7 @@ if [ "$OP" != "UPGRADE" ] ; then
 fi
 
 function exists() {
-    <%= node["conda"]["base_dir"] %>/bin/conda list -n $PROJECT | grep '^${LIB_NAME} '
+    <%= node["conda"]["base_dir"] %>/bin/conda list -n $PROJECT | grep "^${LIB_NAME} "
     return $?
 }
 
