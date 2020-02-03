@@ -277,8 +277,8 @@ end
 ## blacklisted_envs is a comma separated list of Anaconda environments
 ## that should not be deleted by Conda GC
 # python envs
-blacklisted_envs = node['kagent']['python_conda_versions'].split(",").map(&:strip)
-                     .map {|p| p.gsub(".", "") }.map {|p| "python" + p}.join(",")
+blacklisted_envs = node['kagent']['conda']['base_environments']
+
 # hops-system anaconda env
 blacklisted_envs += ",hops-system,airflow"
 

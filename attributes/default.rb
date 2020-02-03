@@ -97,7 +97,7 @@ default["java"]["jdk_version"]                     = 8
 
 default["kagent"]["conda_gc_interval"]             = "1h"
 
-default["kagent"]["python_conda_versions"]         = "2.7, 3.6"
+default["kagent"]["conda"]["base_environments"]         = "python3.7_tf1.15.2,python3.7_tf2.1.0"
 
 default["kagent"]["certs"]["root_ca"]                   = "#{node["kagent"]["certs_dir"]}/hops_ca.pem"
 default["kagent"]["certs"]["elastic_host_certificate"]  = "#{node["kagent"]["certs_dir"]}/elastic_host.pem"
