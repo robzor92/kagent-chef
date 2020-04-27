@@ -46,7 +46,7 @@ function is_python3 {
 }
 
 if [ "$OP" == "YML" ] ; then
-   export PATH=${PATH}:${HADOOP_DIR}/bin; ${CONDA_DIR}/bin/conda env create -f ${YML_FILE_PATH} -n ${PROJECT}
+   export PATH=${PATH}:${HADOOP_DIR}/bin:/usr/local/bin; ${CONDA_DIR}/bin/conda env create -f ${YML_FILE_PATH} -n ${PROJECT}
 
    if [ $? -ne 0 ] ; then
        exit 2
@@ -70,7 +70,7 @@ if [ "$OP" == "YML" ] ; then
 	# Install wit-widget
 	yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade witwidget
 
-	    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build wit-widget; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build @jupyter-widgets/jupyterlab-manager; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build nbdime-jupyterlab; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter lab build
+	    ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build wit-widget; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build @jupyter-widgets/jupyterlab-manager; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install --no-build nbdime-jupyterlab; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter lab build
 	    if [ $IS_ENTERPRISE_EDITION == "true" ]
 	    then
 		## Hopsworks version has one more digit, remove it to install the upstream labextension
@@ -91,7 +91,7 @@ if [ "$OP" == "YML" ] ; then
 		if [ $? -eq 0 ]
 		then
 		    set -e
-		    source /usr/local/nvm/nvm.sh; nvm use 10.16.0; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install @jupyterlab/git@${upstream_version}; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade /home/${USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter serverextension enable --sys-prefix --py jupyterlab_git
+		    ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter labextension install @jupyterlab/git@${upstream_version}; yes | ${CONDA_DIR}/envs/${PROJECT}/bin/pip install --no-cache-dir --upgrade /home/${USER}/jupyterlab_git-${JUPYTERLAB_GIT_VERSION}-py3-none-any.whl; ${CONDA_DIR}/envs/${PROJECT}/bin/jupyter serverextension enable --sys-prefix --py jupyterlab_git
 		else
 		    set -e
 		fi
