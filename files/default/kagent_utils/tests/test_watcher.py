@@ -1,6 +1,5 @@
 import unittest
 import time
-import logging
 
 from kagent_utils import WatcherAction
 from kagent_utils import Watcher

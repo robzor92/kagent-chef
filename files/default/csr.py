@@ -442,4 +442,3 @@ if __name__ == '__main__':
             except Exception, e:
                 LOG.error("Error while generating elk admin certificate: {0}".format(e))
                 raise e
-    

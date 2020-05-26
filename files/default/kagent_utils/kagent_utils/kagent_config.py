@@ -1,11 +1,7 @@
 import sys
 import ConfigParser
 import logging
-import random
-import string
 import socket
-
-from IPy import IP
 
 
 class KConfig:
@@ -92,12 +88,6 @@ class KConfig:
             self.state_store_location = self._config.get(
                 'agent', 'state-store')
             self.agent_password = self._config.get('agent', 'password')
-            self.conda_dir = self._config.get('agent', 'conda-dir')
-            self.conda_user = self._config.get('agent', 'conda-user')
-            self.conda_envs_blacklist = self._config.get(
-                'agent', 'conda-envs-blacklist')
-            self.conda_gc_interval = self._config.get(
-                'agent', 'conda-gc-interval')
             self.public_ip = self._config.get('agent', 'public-ip')
             self.private_ip = self._config.get('agent', 'private-ip')
 

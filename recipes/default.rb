@@ -41,21 +41,6 @@ if node["vagrant"] === "true" || node["vagrant"] == true
     end
 end
 
-jupyter_python = "true"
-if node.attribute?("jupyter") 
-  if node["jupyter"].attribute?("python") 
-    jupyter_python = "#{node['jupyter']['python']}".downcase
-  end
-end
-
-template "#{node["kagent"]["home"]}/bin/anaconda_sync.sh" do
-  source "anaconda_sync.sh.erb"
-  owner node["kagent"]["user"]
-  group node["kagent"]["group"]
-  mode "750"
-  action :create
-end
-
 ruby_block "whereis_systemctl" do
   block do
     Chef::Resource::RubyBlock.send(:include, Chef::Mixin::ShellOut)
@@ -70,25 +55,6 @@ sudo "kagent_systemctl" do
   nopasswd true
   action   :create
   only_if     { node["install"]["sudoers"]["rules"].casecmp("true") == 0 }
-end
-
-kagent_sudoers "anaconda_env" do 
-  script_name "anaconda_env.sh"
-  template    "anaconda_env.sh.erb"
-  user        node["kagent"]["user"]
-  group       node["conda"]["group"]
-  run_as      node["conda"]["user"]
-  variables({
-        :jupyter_python => jupyter_python
-  })
-end
-
-kagent_sudoers "conda" do
-    script_name "conda.sh"
-    template    "conda.sh.erb"
-    user        node["kagent"]["user"]
-    group       node["conda"]["group"]
-    run_as      node["conda"]["user"]
 end
 
 kagent_sudoers "run_csr" do
@@ -266,19 +232,6 @@ if hops_dir == ""
  hops_dir = node['install']['dir'] + "/hadoop"
 end
 
-## blacklisted_envs is a comma separated list of Anaconda environments
-## that should not be deleted by Conda GC
-# python envs
-blacklisted_envs = node['kagent']['python_conda_versions'].split(",").map(&:strip)
-                     .map {|p| p.gsub(".", "") }.map {|p| "python" + p}.join(",")
-# hops-system anaconda env
-blacklisted_envs += ",hops-system,airflow"
-
-# environment used by Hopsworks Cloud
-unless node['install']['cloud'].strip.empty?
-  blacklisted_envs += ",cloud"
-end
-
 template "#{node["kagent"]["etc"]}/config.ini" do
   source "config.ini.erb"
   owner node["kagent"]["user"]
@@ -294,8 +247,7 @@ template "#{node["kagent"]["etc"]}/config.ini" do
               :hops_dir => hops_dir,
               :agent_password => agent_password,
               :kstore => "#{node["kagent"]["keystore_dir"]}/#{hostname}__kstore.jks",
-              :tstore => "#{node["kagent"]["keystore_dir"]}/#{hostname}__tstore.jks",
-              :blacklisted_envs => blacklisted_envs
+              :tstore => "#{node["kagent"]["keystore_dir"]}/#{hostname}__tstore.jks"
             })
 if node["services"]["enabled"] == "true"  
   notifies :enable, "service[#{service_name}]"
@@ -357,24 +309,6 @@ bash "convert private key to PKCS#1 format on update" do
   EOH
   only_if { conda_helpers.is_upgrade and File.exists?("#{node['kagent']['certs_dir']}/priv.key")}
 end
-
-
-if node["install"]["addhost"] == 'true'
-
-  #
-  # This code will wipe out the existing anaconda installation and replace it with one from the hopsworks server - using rsync.
-  # You should remove the anaconda base_dir (/srv/hops/anaconda/anaconda) and set the attribute install/addhost='true' for this to run.
-  #
- bash "sync-anaconda-with-existing-cluster" do
-   user "root"
-   code <<-EOH
-     #{node['kagent']['base_dir']}/bin/anaconda_sync.sh
-   EOH
-   not_if { File.directory?("#{node['conda']['base_dir']}") }
- end
-  
-end  
-
 
 homedir = node['kagent']['user'].eql?("root") ? "/root" : "/home/#{node['kagent']['user']}"
 kagent_keys "#{homedir}" do

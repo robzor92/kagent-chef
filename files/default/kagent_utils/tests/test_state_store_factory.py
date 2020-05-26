@@ -32,4 +32,3 @@ class TestStateStoreFactory(unittest.TestCase):
 
         exception = ex.exception
         self.assertEqual('Unknown state store: invalid', str(exception))
-        

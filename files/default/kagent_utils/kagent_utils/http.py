@@ -15,7 +15,6 @@
 
 import logging
 import requests
-import json
 
 from threading import RLock
 from requests import exceptions as requests_exceptions
@@ -51,4 +50,3 @@ class Http:
                     raise ex
         finally:
             self.lock.release()
-                    

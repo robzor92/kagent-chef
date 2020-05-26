@@ -4,8 +4,6 @@ import os
 import tempfile
 import socket
 
-from IPy import IP
-
 from kagent_utils import KConfig
 
 
@@ -46,10 +44,6 @@ class TestKConfig(unittest.TestCase):
     keystore_script = 'path/to/keystore_script'
     state_store = 'path/to/state_store'
     agent_password = 'agent_password'
-    conda_dir = 'path/to/conda'
-    conda_user = 'conda_user'
-    conda_envs_blacklist = 'python27,python35,hops-system'
-    conda_gc_interval = '2h'
     private_ip = '127.0.0.1'
     public_ip = '192.168.0.1'
     elk_key_file = 'path/to/certs_dir/elastic_admin.key'
@@ -103,11 +97,6 @@ class TestKConfig(unittest.TestCase):
         self.assertEqual(self.keystore_script, config.keystore_script)
         self.assertEqual(self.state_store, config.state_store_location)
         self.assertEqual(self.agent_password, config.agent_password)
-        self.assertEqual(self.conda_dir, config.conda_dir)
-        self.assertEqual(self.conda_user, config.conda_user)
-        self.assertEqual(self.conda_envs_blacklist,
-                         config.conda_envs_blacklist)
-        self.assertEqual(self.conda_gc_interval, config.conda_gc_interval)
         self.assertEqual(self.elk_key_file, config.elk_key_file)
         self.assertEqual(self.elk_certificate_file, config.elk_certificate_file)
         self.assertEqual(self.elk_cn, config.elk_cn)
@@ -180,10 +169,6 @@ class TestKConfig(unittest.TestCase):
                 'keystore-script': self.keystore_script,
                 'state-store': self.state_store,
                 'password': self.agent_password,
-                'conda-dir': self.conda_dir,
-                'conda-user': self.conda_user,
-                'conda-envs-blacklist': self.conda_envs_blacklist,
-                'conda-gc-interval': self.conda_gc_interval,
                 'private-ip': self.private_ip,
                 'public-ip': self.public_ip,
                 'elk-key-file' : self.elk_key_file,
@@ -216,10 +201,6 @@ class TestKConfig(unittest.TestCase):
                 'keystore-script': self.keystore_script,
                 'state-store': self.state_store,
                 'password': self.agent_password,
-                'conda-dir': self.conda_dir,
-                'conda-user': self.conda_user,
-                'conda-envs-blacklist': self.conda_envs_blacklist,
-                'conda-gc-interval': self.conda_gc_interval,
                 'private-ip': self.private_ip,
                 'public-ip': self.public_ip,
                 'elk-key-file' : self.elk_key_file,

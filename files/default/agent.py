@@ -11,10 +11,8 @@ Install:
 '''
 
 import time
-from time import sleep
 from datetime import datetime
 import multiprocessing
-import thread
 from threading import Lock
 import threading
 import Queue
@@ -28,38 +26,25 @@ import requests
 import logging.handlers
 import coloredlogs
 import json
-from OpenSSL import crypto
-import socket
-from os.path import exists, join
 from bottle import Bottle, run, get, post, request, HTTPResponse, server_names, ServerAdapter, response
 from cheroot import wsgi
 from cheroot.ssl.builtin import BuiltinSSLAdapter
-import netifaces
-from IPy import IP
 import re
-from collections import defaultdict
-import io
-import tempfile
 import argparse
 from hops import devices
 
 import kagent_utils
 from kagent_utils import KConfig
 from kagent_utils import IntervalParser
-from kagent_utils import UnrecognizedIntervalException
 
 global mysql_process
 mysql_process = None
 var="~#@#@!#@!#!@#@!#"
 
 config_mutex = Lock()
-conda_mutex = Lock()
 
 HTTP_OK = 200
 AGENT_LOG_FILENAME = "agent.log"
-
-global conda_ongoing
-conda_ongoing = defaultdict(lambda: False)
 
 cores = multiprocessing.cpu_count()
 
@@ -106,15 +91,6 @@ def setupLogging(kconfig):
     logger.info("Hostname: {0}".format(kconfig.hostname))
     logger.info("Public IP: {0}".format(kconfig.public_ip))
     logger.info("Private IP: {0}".format(kconfig.private_ip))
-
-def prepare_conda_commands_logger(kconfig):
-    logger = logging.getLogger(CONDA_COMMANDS_LOGGER_NAME)
-    logger.setLevel(logging.INFO)
-    file_handler = logging.handlers.RotatingFileHandler(os.path.join(kconfig.agent_log_dir, "conda_commands.log"))
-    file_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
     
 ## Antonis: This should go away in the future!!! Used only by RESTCommandHandler execute
 # reading services
@@ -134,18 +110,10 @@ logged_in = False
 
 class Heartbeat():
     daemon_threads = True
-    def __init__(self, commands_queue, system_commands_status, system_commands_status_mutex,
-                 conda_commands_status, conda_commands_status_mutex, conda_report_interval,
-                 conda_envs_monitor_list, host_services):
+    def __init__(self, commands_queue, system_commands_status, system_commands_status_mutex, host_services):
         self._commands_queue = commands_queue
         self._system_commands_status = system_commands_status
         self._system_commands_status_mutex = system_commands_status_mutex
-        self._conda_commands_status = conda_commands_status
-        self._conda_commands_status_mutex = conda_commands_status_mutex
-        self._conda_envs_monitor_list = conda_envs_monitor_list
-        # in ms
-        self._conda_report_interval = conda_report_interval
-        self._last_conda_report = long(time.mktime(datetime.now().timetuple()) * 1000)
         self._host_services = host_services
         self._recover = True
             
@@ -175,20 +143,6 @@ class Heartbeat():
             logger.warn('Could not login agent to Hopsworks {0}'.format(err))
             logged_in = False
 
-    def is_conda_gc_triggered(self):
-        conda_report = False
-        CONDA_CONTROL = '/tmp/trigger_conda_gc'
-        if os.path.isfile(CONDA_CONTROL):
-            with open(CONDA_CONTROL, 'r') as fd:
-                if int(next(fd)) == 1:
-                    conda_report = True
-
-            if conda_report:
-                with open(CONDA_CONTROL, 'w') as fd:
-                    fd.write('0')
-
-        return conda_report
-
     def construct_services_status(self):
         services = []
         for name, service in self._host_services.iteritems():
@@ -207,7 +161,6 @@ class Heartbeat():
            Heartbeat.login()
         else:
             system_status_to_delete = []
-            conda_status_to_delete = []
             try:
                 logger.debug("Creating heartbeat reply...")
                 disk_info = DiskInfo()
@@ -222,20 +175,6 @@ class Heartbeat():
                 payload["agent-time"] = now
                 payload["services"] = services_list
                 payload["recover"] = self._recover
-                
-                now_in_ms = now * 1000
-                time_to_report = (now_in_ms - self._last_conda_report) > self._conda_report_interval
-                if self.is_conda_gc_triggered() or time_to_report:
-                    logger.debug("Triggering Conda GC")
-                    envs_slice = self._conda_envs_monitor_list.slice(10)
-                    if envs_slice is not None:
-                        logger.debug("Investigating Anaconda envs for GC: {0}".format(envs_slice))
-                        payload["conda-report"] = list(envs_slice)
-                    else:
-                        logger.debug("No Anaconda envs for GC")
-                    self._last_conda_report = now_in_ms
-                    
-                commands_status = {}
 
                 self._system_commands_status_mutex.acquire()
                 system_commands_response = []
@@ -250,20 +189,6 @@ class Heartbeat():
                 self._system_commands_status_mutex.release()
                 payload["system-commands"] = system_commands_response
 
-                self._conda_commands_status_mutex.acquire()
-                conda_commands_response = []
-                # Append command status to response
-                for k, v in self._conda_commands_status.iteritems():
-                    conda_commands_response.append(v)
-                    conda_status_to_delete.append(v)
-
-                # Remove status from local statuses state
-                for command_to_delete in conda_status_to_delete:
-                    del self._conda_commands_status[command_to_delete['id']]
-
-                self._conda_commands_status_mutex.release()
-                payload["conda-commands"] = conda_commands_response
-
                 if (kconfig.private_ip != None):
                     payload["private-ip"] = kconfig.private_ip
                 else:
@@ -276,12 +201,6 @@ class Heartbeat():
                 logger.debug("Received heartbeat response")
                 if not resp.status_code == HTTP_OK:
                     # Put back deleted statuses if command ID does not exist in order to be re-send
-                    self._conda_commands_status_mutex.acquire()
-                    for restore_command in conda_status_to_delete:
-                        if restore_command['id'] not in self._conda_commands_status:
-                            self._conda_commands_status[restore_command['id']] = restore_command
-                    self._conda_commands_status_mutex.release()
-
                     self._system_commands_status_mutex.acquire()
                     for restore_command in system_status_to_delete:
                         if restore_command['id'] not in self._system_commands_status:
@@ -305,161 +224,18 @@ class Heartbeat():
                             self._system_commands_status[command['id']] = command
                             self._system_commands_status_mutex.release()
 
-                        conda_commands = theResponse['conda-commands']
-                        for command in conda_commands:
-                            c = Command('CONDA_COMMAND', command)
-                            logger.debug("Adding CONDA command with ID {0} and status {1} to Handler Queue".format(command['id'], command['status']))
-                            commands_queue.put(c)
-                            command['status'] = 'ONGOING'
-                            self._conda_commands_status_mutex.acquire()
-                            self._conda_commands_status[command['id']] = command
-                            self._conda_commands_status_mutex.release()
                     except Exception as err:
                         logger.info("No commands to execute")
-                        for data in theResponse['condaCommands']:
-                            proj = data['proj']
-                            conda_ongoing[proj] = False
 
             except Exception as err:
                 logger.error("{0}. Retrying in {1} seconds...".format(err, kconfig.heartbeat_interval))
                 logged_in = False
 
-CONDA_COMMAND_LOG_PATTERN = "{project_name} {operation} {artifact} {artifact_version} {exit_code} {return_message}"
-CONDA_COMMANDS_LOGGER_NAME = __name__ + "/conda_commands"
-
-class CondaCommandsHandler:
-    def __init__(self, conda_commands_status, conda_commands_status_mutex):
-        self._conda_commands_status = conda_commands_status
-        self._conda_commands_status_mutex = conda_commands_status_mutex
-        self._commands_logger = logging.getLogger(CONDA_COMMANDS_LOGGER_NAME)
-
-    def handle(self, command):
-        global conda_ongoing
-        if (command is None):
-            return
-        logger.debug("Handling Conda command: {0}".format(json.dumps(command, indent=2)))
-        op = command['op'].upper()
-        user = command['user']
-        proj = command['proj']
-        command_id = command['id']
-        offline = ""
-        logger.info("Command to execute: {0}/{1}/{2}".format(op, proj, command_id))
-        if (conda_ongoing[proj] == False):
-            conda_ongoing[proj] = True
-            logger.info("Executing Command {0}/{1}/{2}".format(user, op, proj))
-            arg = ""
-            if 'arg' in command:
-                arg = command['arg']
-            if op == "REMOVE" or op == "CLONE" or op == "CREATE" or op == "YML" or op == "EXPORT" or op == "CLEAN":
-                self._envOp(command, arg, offline)
-            elif op == "INSTALL" or op == "UNINSTALL" or op == "UPGRADE":  # Conda package  commands (install, uninstall, upgrade)
-                self._libOp(command)
-            else:
-                logger.error("Unkown command OP: {0} Ignoring...".format(op))
-        else:
-            logger.warn("Conda busy executing a command for project: {0}".format(proj))
-
-
-    def _log_conda_command(self, project_name, operation, artifact, artifact_version, exit_code, return_message):
-        log = CONDA_COMMAND_LOG_PATTERN.format(project_name=project_name.strip().lower(),
-                                               operation=operation.strip(),
-                                               artifact=artifact.strip(),
-                                               artifact_version=artifact_version,
-                                               exit_code=exit_code,
-                                               return_message=return_message.strip())
-        self._commands_logger.info(log)
-        
-    def _envOp(self, command, arg, offline):
-        global conda_ongoing
-        command_id = command['id']
-        op = command['op'].upper()
-        proj = command['proj']
-        install_jupyter = str(command['installJupyter']).lower()
-
-        tempfile_fd = None
-        script = kconfig.sbin_dir + "/anaconda_env.sh"
-        logger.info("sudo -u {0} {1} {2} {3} {4} '{5}' {6} {7}".format(kconfig.conda_user, script, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter))
-        msg=""
-        try:
-            self._log_conda_command(proj, op, proj, arg, -1, 'WORKING')
-            yml_file_path = "''"
-            if command['op'] == 'YML' or command['op'] == 'EXPORT':
-                tempfile_fd = tempfile.NamedTemporaryFile(suffix='.yml', delete=True)
-                yml_file_path = tempfile_fd.name
-                if command['op'] == 'YML':
-                    tempfile_fd.write(command['environmentYml'])
-                    tempfile_fd.flush()
-                    os.chmod(yml_file_path, 0604)
-                else:
-                    os.chmod(yml_file_path, 0606)
-            msg = subprocess.check_output(['sudo', '-u', kconfig.conda_user, script, op, proj, arg, offline, kconfig.hadoop_home, install_jupyter, yml_file_path], cwd=kconfig.conda_dir, stderr=subprocess.STDOUT)
-            if command['op'] == 'EXPORT':
-                with open(yml_file_path, 'r') as yml_file:
-                    content = yml_file.read()
-                    command['environmentYml'] = content
-            command['status'] = 'SUCCESS'
-            command['arg'] = arg
-            self._log_conda_command(proj, op, proj, arg, 0, 'SUCCESS')
-        except subprocess.CalledProcessError as e:
-            logger.warn("Exception in envOp {0}".format(e.output))
-            logger.warn("Exception in envOp. Ret code: {0}".format(e.returncode))
-            self._log_conda_command(proj, op, proj, arg, e.returncode, e.output)
-            command['status'] = 'FAILED'
-        finally:
-            if (command['op'] == 'YML' or command['op'] == 'EXPORT') and tempfile_fd != None:
-                tempfile_fd.close()
-            if command_id != -1:
-                self._conda_commands_status_mutex.acquire()
-                logger.debug("Adding status {0} for command ID {1} - {2}".format(command['status'], command_id, command))
-                self._conda_commands_status[command_id] = command
-                self._conda_commands_status_mutex.release()
-            conda_ongoing[proj] = False
-        return msg
-
-    def _libOp(self, command):
-        global conda_ongoing
-        command_id = command['id']
-        op = command['op'].upper()
-        proj = command['proj']
-        version = command['version']
-        channelUrl = command['channelUrl']
-        installType = command['installType']
-        lib = command['lib']
-        if not channelUrl:
-            channelUrl="default"
-        if not version:
-            version=""
-        script = kconfig.sbin_dir + "/conda.sh"
-
-        try:
-            command_str = "sudo -u {0} {1} {2} {3} {4} {5} {6} {7}".format(kconfig.conda_user, script, op, proj, channelUrl, installType, lib, version)
-            logger.info("Executing libOp command {0}".format(command_str))
-            self._log_conda_command(proj, op, lib, version, -1, 'WORKING')
-            msg = subprocess.check_output(['sudo', '-u', kconfig.conda_user, script, op, proj, channelUrl, installType, lib, version], cwd=kconfig.conda_dir, stderr=subprocess.STDOUT)
-            logger.info("Lib op finished without error.")
-            logger.info("{0}".format(msg))
-            command['status'] = 'SUCCESS'
-            self._log_conda_command(proj, op, lib, version, 0, 'SUCCESS')
-        except subprocess.CalledProcessError as e:
-            logger.warn("Exception in libOp {0}".format(e.output))
-            logger.warn("Exception in libOp. Ret code: {0}".format(e.returncode))
-            self._log_conda_command(proj, op, lib, version, e.returncode, e.output)
-            command['status'] = 'FAILED'
-        finally:
-            conda_ongoing[proj] = False
-            if command_id != -1:
-                self._conda_commands_status_mutex.acquire()
-                logger.debug("Adding status {0} for command ID {1} - {2}".format(command['status'], command_id, command))
-                self._conda_commands_status[command_id] = command
-                self._conda_commands_status_mutex.release()
-
-
 class SystemCommandsHandler:
-    def __init__(self, system_commands_status, system_commands_status_mutex, config_file_path, conda_envs_monitor_list):
+    def __init__(self, system_commands_status, system_commands_status_mutex, config_file_path):
         self._system_commands_status = system_commands_status
         self._system_commands_status_mutex = system_commands_status_mutex
         self._config_file_path = config_file_path
-        self._conda_envs_monitor_list = conda_envs_monitor_list
 
     def handle(self, command):
         if command is None:
@@ -469,29 +245,8 @@ class SystemCommandsHandler:
 
         if op == 'SERVICE_KEY_ROTATION':
             self._service_key_rotation(command)
-        elif op == 'CONDA_GC':
-            self._conda_env_garbage_collection(command)
         else:
             logger.error("Unknown OP {0} for system command {1}".format(op, command))
-
-    def _conda_env_garbage_collection(self, command):
-        to_be_removed = json.loads(command['arguments'])
-
-        conda_bin = os.path.join(kconfig.conda_dir, 'bin', 'conda')
-        for env in to_be_removed:
-            try:
-                script = os.path.join(kconfig.sbin_dir, 'anaconda_env.sh')
-                subprocess.check_call(['sudo', '-u', kconfig.conda_user, script, 'REMOVE', env, '', '', '', ''], cwd=kconfig.conda_dir)
-                logger.info("Removed Anaconda environment {0}".format(env))
-                self._conda_envs_monitor_list.remove(env)
-            except CalledProcessError as e:
-                logger.warn("Could not remove environment {0} - exit code {1}".format(env, e.returncode))
-        command['status'] = 'FINISHED'
-        try:
-            self._system_commands_status_mutex.acquire()
-            self._system_commands_status[command['id']] = command
-        finally:
-            self._system_commands_status_mutex.release()
 
     def _service_key_rotation(self, command):
         try:
@@ -543,14 +298,13 @@ class Command:
         return self._command
 
 class Handler(threading.Thread):
-    def __init__(self, commands_queue, systemCommandsHandler, condaCommandsHandler,
-                 group=None, target=None, name=None, args=(), kwargs=None, verbose=None):
+    def __init__(self, commands_queue, systemCommandsHandler, group=None, target=None, name=None, args=(),
+                 kwargs=None, verbose=None):
         threading.Thread.__init__(self, group=group, target=target, name=name, verbose=verbose)
         self.args = args
         self.kwargs = kwargs
         self._commands_queue = commands_queue
         self._systemCommandsHandler = systemCommandsHandler
-        self._condaCommandsHandler = condaCommandsHandler
         return
 
     def run(self):
@@ -562,10 +316,7 @@ class Handler(threading.Thread):
             command = c.get_command()
 
             try:
-                if (command_type == 'CONDA_COMMAND'):
-                    logger.info("Conda command")
-                    self._condaCommandsHandler.handle(command)
-                elif (command_type == 'SYSTEM_COMMAND'):
+                if (command_type == 'SYSTEM_COMMAND'):
                     logger.info("System command")
                     self._systemCommandsHandler.handle(command)
             except Exception as e:
@@ -843,7 +594,6 @@ if __name__ == '__main__':
 
     create_log_dir_if_not(kconfig)
     setupLogging(kconfig)
-    prepare_conda_commands_logger(kconfig)
     readServicesFile()
         
     hw_http_client = kagent_utils.Http(kconfig)
@@ -878,43 +628,23 @@ if __name__ == '__main__':
                                                  fail_after=sys.maxint, name="host_services_monitor")
     host_services_monitor.setDaemon(True)
     host_services_monitor.start()
-
-    ## Start thread to perform Anaconda environments garbage collection
-    conda_report_interval = interval_parser.get_interval_in_ms(kconfig.conda_gc_interval)
-    conda_envs_monitor_list = kagent_utils.ConcurrentCircularLinkedList()
-    watcher_action = kagent_utils.CondaEnvsWatcherAction(conda_envs_monitor_list, kconfig)
-    watcher_interval = int(interval_parser.get_interval_in_s(kconfig.conda_gc_interval) / 2)
-    # Default interval to 1 second. We don't want the watcher to spin like crazy
-    conda_envs_watcher = kagent_utils.Watcher(watcher_action, max(1, watcher_interval), name="conda_gc_watcher")
-    conda_envs_watcher.setDaemon(True)
-    conda_envs_watcher.start()
-
     
     commands_queue = Queue.PriorityQueue(maxsize=100)
     system_commands_status = {}
     system_commands_status_mutex = Lock()
     config_file_path = os.path.abspath(args.config)
     system_commands_handler = SystemCommandsHandler(system_commands_status, system_commands_status_mutex,
-                                                    config_file_path, conda_envs_monitor_list)
-
-    conda_commands_status = {}
-    conda_commands_status_mutex = Lock()
-    conda_commands_handler = CondaCommandsHandler(conda_commands_status, conda_commands_status_mutex)
+                                                    config_file_path)
 
     ## Start commands handler thread
-    commands_handler = Handler(commands_queue, system_commands_handler, conda_commands_handler)
+    commands_handler = Handler(commands_queue, system_commands_handler)
     commands_handler.setDaemon(True)
     commands_handler.start()
 
     ## Start heartbeat thread
-    hb_thread = threading.Thread(target=Heartbeat, args=(commands_queue, system_commands_status, system_commands_status_mutex,
-                                                         conda_commands_status, conda_commands_status_mutex, conda_report_interval,
-                                                         conda_envs_monitor_list, host_services))
+    hb_thread = threading.Thread(target=Heartbeat, args=(commands_queue, system_commands_status, system_commands_status_mutex, host_services))
     hb_thread.setDaemon(True)
     hb_thread.start()
-
-
-
 
     # The REST code uses a CherryPy webserver, but Bottle for the REST endpoints
     # WSGI server for SSL
@@ -1021,46 +751,6 @@ if __name__ == '__main__':
             else:
                 return rest_command_handler.execute(group, service, command, params);
         return rest_command_handler.response(404, "Error")
-
-
-    @get('/conda/<user>/<command_id>/<op>/<proj>/<lib>')
-    def conda(user,command_id,op,proj,lib):
-        logger.info('Incoming REST Request:  GET /conda/{0}/{1}/{2}'.format(op, proj, lib))
-        if not _authenticate():
-            return _authentication_error()
-
-        channelurl = request.params['channelurl']
-        version = request.params['version']
-        try:
-            msg = Conda().conda(user,command_id, op, proj, channelurl, lib, version)
-            resp = HTTPResponse(status=HTTP_OK, output=msg)
-            logger.info("{0}".format(resp))
-            return resp
-        except Exception as err:
-            logger.error("{0}".format(err))
-            return rest_command_handler.response(400, "Error")
-
-    # Normal client sets 'channel' to 'defaults' for http://conda.anaconda.org/ or 'system' to get system packages
-    # curl -k -X GET https://10.0.2.15:8090/create/project?password=blah
-    # curl -k -X GET https://10.0.2.15:8090/clone/projectSrc/projectDest?password=blah
-    @get('/anaconda/<user>/<command_id>/<op>/<proj>/<arg>')
-    def anaconda(user, command_id, op, proj, arg):
-        logger.info('Incoming REST Request:  GET /anaconda/{0}/{1}/{2}'.format(user, op, proj))
-        if not _authenticate():
-            return _authentication_error()
-
-        # Blocking REST call here
-        arg = "default"
-        if (op == "clone"):
-            arg = request.params['srcproj']
-        try:
-            msg = Conda()._envOp(user, command_id, op, proj, arg, "")
-            resp = HTTPResponse(status=HTTP_OK, output=msg)
-            logger.info("{0}".format(resp))
-            return resp
-        except Exception as err:
-            logger.error("{0}".format(err))
-            return rest_command_handler.response(400, "Error")
 
     logger.info("RESTful service started.")
     run(host='0.0.0.0', port=kconfig.rest_port, server='sslcherrypy')

@@ -95,10 +95,6 @@ default["certs"]["dir"]                            = node["install"]["dir"].empt
 default["java"]["install_flavor"]                  = "openjdk"
 default["java"]["jdk_version"]                     = 8
 
-default["kagent"]["conda_gc_interval"]             = "1h"
-
-default["kagent"]["python_conda_versions"]         = "3.6"
-
 default["kagent"]["certs"]["root_ca"]                   = "#{node["kagent"]["certs_dir"]}/hops_ca.pem"
 default["kagent"]["certs"]["elastic_host_certificate"]  = "#{node["kagent"]["certs_dir"]}/elastic_host.pem"
 default["kagent"]["certs"]["host_key"]                  = "#{node["kagent"]["certs_dir"]}/priv.key"

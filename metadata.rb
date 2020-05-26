@@ -21,7 +21,7 @@ depends 'magic_shell', '~> 1.0.0'
 depends 'conda'
 
 recipe "kagent::install", "Installs the Karamel agent and python dependencies"
-recipe "kagent::default", "Installs and configures the Karamel agent, including anaconda"
+recipe "kagent::default", "Installs and configures the Karamel agent"
 recipe "kagent::purge", "Deletes the Karamel agent files"
 recipe "kagent::dev", "Development helper library"
 
@@ -85,24 +85,12 @@ attribute "systemd",
           :description => "Use systemd startup scripts, default 'true'",
           :type => "string"
 
-attribute "kagent/conda_gc_interval",
-          :description => "Define interval for kagent to run Anaconda garbage collection, suffix: ms, s, m, h, d. Default: 1h",
-          :type => "string"
-
 attribute "ntp/install",
           :description => "Install Network Time Protocol (default: false)",
           :type => "string"
 
 attribute "services/enabled",
           :description => "Default 'false'. Set to 'true' to enable daemon services, so that they are started on a host restart.",
-          :type => "string"
-
-attribute "hops/yarn/user",
-          :description => "Yarn user for conda",
-          :type => "string"
-
-attribute "hops/group",
-          :description => "Haodop group for conda",
           :type => "string"
 
 attribute "certs/dir",
@@ -112,11 +100,3 @@ attribute "certs/dir",
 attribute "hops/dir",
           :description => "Installation directory for Hops",
           :type => 'string'
-
-attribute "jupyter/python",
-          :description => "'true' (default) to enable the python interpreter, 'false' to disable it (more secure). ",
-          :type => 'string'
-
-attribute "kagent/python_conda_versions",
-          :description => "CSV of python versions to be used as base environments for Anaconda",
-          :type => "string"
